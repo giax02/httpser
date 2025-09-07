@@ -6,7 +6,7 @@
 #define ACTIVE 1
 #define MAX_ATTEMPTS_ID_GEN 100
 
-// USE PORT 60100
+/* USE PORT 2145 */
 
 #include <netdb.h>
 #include <stdio.h>
@@ -24,10 +24,11 @@ struct client {
 	uint8_t id;		/*max 128 ids be careful*/
 	unsigned int position;	/*position in client_sockets array*/
 	struct pollfd socket;
+	struct sockaddr_in addr;
 	struct client * next_ptr;
 };
 
-void print_ver_and_id() {
+void print_ver_and_id(void) {
 	printf("Simple HTTP server\n");
 	printf("Version: %s\n", VERSION);
 	printf("Author: Giacomo Leandrini\n");
@@ -42,8 +43,8 @@ void debug_printf(char buf[]) {
 	if(!SILENCE) printf("%s", buf);
 }
 
-uint8_t id_gen(struct client * tail, struct client * head) {
-	if (tail == head) return rand();
+uint8_t id_gen(struct client * tail) {
+	if (tail.next_ptr == NULL) return rand();
 	for(int attempts = 1; i < MAX_ATTEMPTS_ID_GEN; attempts++) {
 		uint8_t id = rand();
 		while (tail->next_ptr != NULL) {
@@ -55,29 +56,26 @@ uint8_t id_gen(struct client * tail, struct client * head) {
 	return 0; //cant find a suitable id or max attempts reached
 }
 
-/* (TAIL)<-()<-()<-()<-(HEAD) from main only tail is known, head can be obtained going through "next_ptr"s*/
 uint8_t add_client(struct client * tail, int sockfd) {
 	struct client * ttail = tail;
-	if(tail == NULL) {	/* first element */
+	unsigned int ctr = 1
+	if(tail == NULL) {	/* zero clients rn, crating first element */
 		tail = malloc(sizeof(struct client));
-		tail->next_ptr = NULL;
-		tail->id = id_gen(tail, tail);
-		tail->position = 1;
-		tail->socket.fd = sockfd;
 	} else {	/* every other element */
-		head = tail.next_ptr;
-		unsigned int ctr = 1
-		while (head->next_ptr != NULL) {
-			head = head->next_ptr;
+		ctr++;
+		while (tail->next_ptr != NULL) {
+			tail = tail->next_ptr;
 			ctr++;
 		}
-		head->next_ptr = malloc(sizeof(struct client));	/* head here is the latest added client */
-		head->next_ptr->next_ptr = NULL;
-		head->next_ptr->id = id_gen(tail, head);		/* to implement error check (id_gen can return 0) */
-		head->next_ptr->position = ctr + 1;						
-		head->next_ptr->socket.fd = sockfd;
-
+		tail->next_ptr = malloc(sizeof(struct client));
+		tail = tail->next_ptr;
 	}
+		tail->next_ptr = NULL;
+		tail->id = id_gen(tail);		/* to implement error check (id_gen can return 0) */
+		tail->position = ctr;						
+		memset(&(tail->socket), 0, sizeof(struct pollfd));
+		tail->socket.fd = sockfd;
+		tail->socket.events = POLLIN;
 }
 
 void remove_client(unsigned int position, struct client * tail) {
@@ -90,19 +88,26 @@ void remove_client(unsigned int position, struct client * tail) {
 	ttail->next_ptr = ttail->next_ptr->next_ptr;
 }
 
+int client_count(struct client * tail)
+{
+	int count = 0;
+	while (tail->next_ptr != NULL) count++;
+	return count;
+
+}
+
 int main(int argc, char * argv[]) {
 
 	unsigned int seed = arc4random();
-	//test
 	srand(seed);
 
-	struct client * tail = NULL;
-	struct client *clients = malloc(sizeof(struct client) * MAX_CLIENT_COUNT);
-	int sockfd, newsockfd, portno, clilen, n, client_count;
-	struct sockaddr_in serv_addr, cli_addr;
 	char buffer[BUFFER_IN_LEN];
-	struct pollfd socketpoll;
-	struct pollfd * client_sockets = malloc( sizeof(struct pollfd) * MAX_CLIENT_COUNT);
+	struct client * tail = NULL;
+	int sockfd, newsockfd, portno, clilen;
+	struct sockaddr_in serv_addr, cli_addr;
+
+	//struct pollfd * client_sockets = malloc( sizeof(struct pollfd) * MAX_CLIENT_COUNT);
+	//struct client *clients = malloc(sizeof(struct client) * MAX_CLIENT_COUNT);
 
 	print_ver_and_id();
 
@@ -135,27 +140,17 @@ int main(int argc, char * argv[]) {
 	listen(sockfd,5);
 
 	clilen = sizeof(cli_addr);
-	client_count = 0;
 
-	printf("Listening TCP on port: %d\n", portno);
+	printf("Listening for TCP on port: %d\n", portno);
 	printf("Max clients number: %d\n", MAX_CLIENT_COUNT);
-	debug_printf("ciao1\n");
-	debug_pr
-
 
 	while (1) {
-		debug_printf("inizio while 1\n");
+		debug_printf("start infinite loop\n");
 		newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
 		if (newsockfd > 0) {
-			if(tail == NULL) {
-				tail->socket.fd = newsockfd;
-				tail->soc
-			}
-			else {
 
-			}
-			client_count++;
-			printf("Client %d connesso\n", client_count);
+			add_client(tail, newsockfd);
+			printf("Client %d connesso\n", client_count());
 			memset(&client_sockets[client_count], 0, sizeof(struct pollfd));
 			client_sockets[client_count].fd 	= newsockfd;
 			client_sockets[client_count].events = POLLIN;
