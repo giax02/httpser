@@ -4,7 +4,10 @@
 #define MAX_CLIENT_COUNT 3
 #define SILENCE 1
 #define ACTIVE 1
+<<<<<<< HEAD
 #define MAX_ATTEMPTS_ID_GEN 100
+=======
+>>>>>>> 796d2be (First commit - project start)
 
 // USE PORT 60100
 
@@ -20,6 +23,7 @@
 #include <fcntl.h>
 #include <malloc.h>
 
+<<<<<<< HEAD
 struct client {
 	uint8_t id;		/*max 128 ids be careful*/
 	unsigned int position;	/*position in client_sockets array*/
@@ -34,10 +38,32 @@ void print_ver_and_id() {
 }
 
 void error(char *msg) {
+=======
+struct client
+{
+	uint8_t id;		/*max 128 ids be careful*/
+	int position;	/*position in client_sockets array*/
+	struct pollfd;
+	struct client * next;
+};
+
+void print_ver_and_id()
+{
+	printf("Simple HTTP server\n");
+	printf("Version: ");
+	printf(VERSION);
+	printf("\n");
+	printf("Author: Giacomo Leandrini\n");
+}
+
+void error(char *msg)
+{
+>>>>>>> 796d2be (First commit - project start)
  perror(msg);
  exit(1);
 }
 
+<<<<<<< HEAD
 void debug_printf(char buf[]) {
 	if(!SILENCE) printf("%s", buf);
 }
@@ -96,6 +122,13 @@ int main(int argc, char * argv[]) {
 	srand(seed);
 
 	struct client * tail = NULL;
+=======
+void debug_printf(char buf[]);
+
+int main(int argc, char * argv[])
+{
+
+>>>>>>> 796d2be (First commit - project start)
 	struct client *clients = malloc(sizeof(struct client) * MAX_CLIENT_COUNT);
 	int sockfd, newsockfd, portno, clilen, n, client_count;
 	struct sockaddr_in serv_addr, cli_addr;
@@ -105,7 +138,13 @@ int main(int argc, char * argv[]) {
 
 	print_ver_and_id();
 
+<<<<<<< HEAD
 	if (argc != 2) {
+=======
+
+	if (argc != 2)
+	{
+>>>>>>> 796d2be (First commit - project start)
 		fprintf(stderr, "Usage: %s port\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
@@ -142,6 +181,7 @@ int main(int argc, char * argv[]) {
 	debug_pr
 
 
+<<<<<<< HEAD
 	while (1) {
 		debug_printf("inizio while 1\n");
 		newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
@@ -153,6 +193,15 @@ int main(int argc, char * argv[]) {
 			else {
 
 			}
+=======
+	while (1)
+	{
+		debug_printf("inizio while 1\n");
+		newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
+		if (newsockfd > 0)
+		{
+			//error("ERROR on accept");
+>>>>>>> 796d2be (First commit - project start)
 			client_count++;
 			printf("Client %d connesso\n", client_count);
 			memset(&client_sockets[client_count], 0, sizeof(struct pollfd));
@@ -160,12 +209,24 @@ int main(int argc, char * argv[]) {
 			client_sockets[client_count].events = POLLIN;
 		}
 		//debug_printf("prima del if client count %d\n", client_count);
+<<<<<<< HEAD
 		if(client_count >= 1) {
 			//printf("if client_count maggiore di 1?");
 			int ret = poll(client_sockets, MAX_CLIENT_COUNT, 0);
 			for (int i = 1; i <= client_count; i++) {
 				//printf("Itearazione %d",i);
 				if (client_sockets[i].revents & POLLIN) {
+=======
+		if(client_count >= 1)
+		{
+			//printf("if client_count maggiore di 1?");
+			int ret = poll(client_sockets, MAX_CLIENT_COUNT, 0);
+			for (int i = 1; i <= client_count; i++) //i is the client number
+			{
+				//printf("Itearazione %d",i);
+				if (client_sockets[i].revents & POLLIN)
+				{
+>>>>>>> 796d2be (First commit - project start)
 					//memset(&buffer, 0, sizeof(buffer));
 					memset(&buffer, 0, sizeof(buffer));
 					n = read(client_sockets[i].fd, buffer, sizeof(buffer) - 1);
@@ -177,4 +238,20 @@ int main(int argc, char * argv[]) {
 		}
 	}
 	return 0;
+<<<<<<< HEAD
 }
+=======
+}
+
+void debug_printf(char buf[])
+{
+	if(!SILENCE) printf("%s", buf);
+}
+
+
+	//fprintf(stdout, "%s", )
+		//bzero(buffer,256);
+		//n = read(newsockfd,buffer,255);
+		//if (n < 0) error("ERROR reading from socket");
+		//printf("Here is the message: %s",buffer);
+>>>>>>> 796d2be (First commit - project start)
