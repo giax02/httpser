@@ -24,7 +24,7 @@ struct client
 	uint8_t id;		/*max 128 ids be careful*/
 	int position;	/*position in client_sockets array*/
 	struct pollfd;
-	struct client * next;
+	struct client * next_ptr;
 };
 
 void print_ver_and_id()
@@ -42,11 +42,15 @@ void error(char *msg)
  exit(1);
 }
 
-void debug_printf(char buf[]);
+void debug_printf(char buf[])
+{
+	if(!SILENCE) printf("%s", buf);
+}
 
 int main(int argc, char * argv[])
 {
 
+	struct client *head = NULL;
 	struct client *clients = malloc(sizeof(struct client) * MAX_CLIENT_COUNT);
 	int sockfd, newsockfd, portno, clilen, n, client_count;
 	struct sockaddr_in serv_addr, cli_addr;
@@ -55,7 +59,6 @@ int main(int argc, char * argv[])
 	struct pollfd * client_sockets = malloc( sizeof(struct pollfd) * MAX_CLIENT_COUNT);
 
 	print_ver_and_id();
-
 
 	if (argc != 2)
 	{
@@ -130,12 +133,6 @@ int main(int argc, char * argv[])
 	}
 	return 0;
 }
-
-void debug_printf(char buf[])
-{
-	if(!SILENCE) printf("%s", buf);
-}
-
 
 	//fprintf(stdout, "%s", )
 		//bzero(buffer,256);
