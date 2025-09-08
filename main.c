@@ -42,21 +42,6 @@ void debug_printf(char buf[]) {
 	if(!SILENCE) printf("%s", buf);
 }
 
-/*
-uint8_t id_gen(struct client * tail) {
-	if (tail.next_ptr == NULL) return rand();
-	for(int attempts = 1; i < MAX_ATTEMPTS_ID_GEN; attempts++) {
-		uint8_t id = rand();
-		while (tail->next_ptr != NULL) {
-			if (tail->id == id) break;
-			if (tail->next_ptr == NULL) return id;
-			tail = tail->nextptr;
-		}
-	}
-	return 0; //cant find a suitable id or max attempts reached
-}
-*/
-
 void refresh_positions(struct client * tail) {
 		int ctr = 1;
 		while(tail != NULL)
@@ -68,8 +53,8 @@ void refresh_positions(struct client * tail) {
 		return;
 }
 
-void add_client(struct client ** tail, int sockfd, struct sockaddr_in cli_addr) {	//BRO KEN REPAIR
-	struct client * ttail = *tail;				/*ttail = temporary tail, used to leave tail untouched*/
+void add_client(struct client ** tail, int sockfd, struct sockaddr_in cli_addr) {
+	struct client * ttail = *tail;				/*ttail = temporary tail, used to leave *tail untouched*/
 	if(*tail == NULL){
 		*tail = malloc(sizeof(struct client));
 		if(*tail == NULL)
@@ -98,7 +83,7 @@ void add_client(struct client ** tail, int sockfd, struct sockaddr_in cli_addr) 
 }
 
 void remove_client(unsigned int position, struct client ** tail) {
-	struct client * ttail = *tail;				/*ttail = temporary tail, used to leave tail untouched*/
+	struct client * ttail = *tail;				/*ttail = temporary tail, used to leave *tail untouched*/
 	if (position == 1) {
 		if((*tail)->next_ptr == NULL) {			/*first element, none ahead	|O            */
 			free(*tail);						/*free to ttail, not tail, just in case the free modifies the address stored in ttail*/
@@ -140,13 +125,12 @@ int main(int argc, char * argv[]) {
 	char buffer[BUFFER_IN_LEN];
 	struct client * tail = NULL;	/*mythical client forward linked list tail (or head?)*/
 									/*it looks like this(TAIL)->()->()->()->(NULL)*/
+									/*ok it is the head but it works the same so whatever */
+
 	printf("tail addr primordiale %x\n", tail);
 	int sockfd, newsockfd, portno, clilen, n;
 	struct sockaddr_in serv_addr, cli_addr;
 	char cli_addr_buf[INET_ADDRSTRLEN];
-
-	//struct pollfd * client_sockets = malloc( sizeof(struct pollfd) * MAX_CLIENT_COUNT);
-	//struct client *clients = malloc(sizeof(struct client) * MAX_CLIENT_COUNT);
 
 	print_ver_and_id();
 
@@ -162,7 +146,7 @@ int main(int argc, char * argv[]) {
 	int opt = 1;
 	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));	/*socket option to be reused asap?*/
 
-	bzero((char *) &serv_addr, sizeof(serv_addr));	/*setting serv_addr to zero (bzero is a memset wrapper as far as I know)*/
+	bzero((char *) &serv_addr, sizeof(serv_addr));	/*setting serv_addr to zero (bzero is a memset wrapper afaik)*/
 
 	portno = atoi(argv[1]);
 
@@ -184,14 +168,11 @@ int main(int argc, char * argv[]) {
 	printf("Max clients number: %d\n", MAX_CLIENT_COUNT);
 
 	while (1) {
-		//debug_printf("Start infinite loop\n");
 		newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
 		if (newsockfd > 0) {
 			add_client(&tail, newsockfd, cli_addr);
-			//printf("client Aggiunto");
 			if (inet_ntop(AF_INET, &(cli_addr.sin_addr), cli_addr_buf, sizeof(cli_addr_buf)) == NULL) error("Error converting IPV4 addr to string");
 			printf("Client %d connected from %s \n", client_count(tail), cli_addr_buf);
-			//printf("tail addr %x\n", tail);
 		}
 		/* Ok now lets check for incoming data*/
 		if(client_count(tail) > 0) {	/*but only if there is any client connected*/
