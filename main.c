@@ -1,5 +1,5 @@
 #define VERSION "2.0.0"
-#define BUFFER_IN_LEN 2048
+#define BUFFER_IN_LEN 16
 #define BUF_SIZE 500
 /*#define MAX_CLIENT_COUNT 3*/
 #define SILENCE 0
@@ -117,20 +117,39 @@ int client_count(struct client * tail)
 	return count;
 }
 
+/*
+void check_for_new_client(int sockfd, struct sockaddr_in cli_addr, int clilen, struct client * tail, char * cli_addr_buf) {
+	int newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
+	if (newsockfd > 0) {
+		add_client(&tail, newsockfd, cli_addr);
+		if (inet_ntop(AF_INET, &(cli_addr.sin_addr), cli_addr_buf, sizeof(cli_addr_buf)) == NULL) error("Error converting IPV4 addr to string");
+		printf("Client %d connected from %s \n", client_count(tail), cli_addr_buf);
+	}
+}
+*/
+
+void shell_parse(char * buf, struct client * tail) {
+	char cmd1[] = "clientcount\n";
+	if (strcmp(buf, cmd1) == 0)
+		printf("Connected clients: %d\n", client_count(tail));
+	else
+		printf("Unknown command\n");
+	return;
+}
+
 int main(int argc, char * argv[]) {
 
 	unsigned int seed = arc4random();
 	srand(seed);
-
 	char buffer[BUFFER_IN_LEN];
+	char shell_buf[128];
+	char cli_addr_buf[INET_ADDRSTRLEN];
 	struct client * tail = NULL;	/*mythical client forward linked list tail (or head?)*/
 									/*it looks like this(TAIL)->()->()->()->(NULL)*/
 									/*ok it is the head but it works the same so whatever */
 
-	printf("tail addr primordiale %x\n", tail);
 	int sockfd, newsockfd, portno, clilen, n;
 	struct sockaddr_in serv_addr, cli_addr;
-	char cli_addr_buf[INET_ADDRSTRLEN];
 
 	print_ver_and_id();
 
@@ -160,20 +179,35 @@ int main(int argc, char * argv[]) {
 	int flags = fcntl(sockfd, F_GETFD, 0);
 	fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
 
+	flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);	/*rendo non bloccante stdin*/
+
 	listen(sockfd,5);
 
 	clilen = sizeof(cli_addr);
 
 	printf("Listening for TCP on port: %d\n", portno);
-	printf("Max clients number: %d\n", MAX_CLIENT_COUNT);
+	//printf("Max clients number: %d\n", MAX_CLIENT_COUNT);
 
 	while (1) {
+
+
 		newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
 		if (newsockfd > 0) {
 			add_client(&tail, newsockfd, cli_addr);
 			if (inet_ntop(AF_INET, &(cli_addr.sin_addr), cli_addr_buf, sizeof(cli_addr_buf)) == NULL) error("Error converting IPV4 addr to string");
 			printf("Client %d connected from %s \n", client_count(tail), cli_addr_buf);
 		}
+		
+		memset(&shell_buf, 0, sizeof(shell_buf));
+		if (read(STDIN_FILENO, shell_buf, sizeof(shell_buf) - 1) > 0) {
+			//printf("echo: %s", shell_buf);
+			char command_symbol[] = "/";
+			if(strncmp(shell_buf, command_symbol, 1) == 0)
+				shell_parse(shell_buf + 1, tail);
+		}
+
+		//check_for_new_client(sockfd, cli_addr, clilen, tail, cli_addr_buf);
 		/* Ok now lets check for incoming data*/
 		if(client_count(tail) > 0) {	/*but only if there is any client connected*/
 			struct client * index  = tail;
