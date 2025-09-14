@@ -19,6 +19,10 @@
 #include <poll.h>
 #include <fcntl.h>
 #include <malloc.h>
+#include <netinet/tcp.h>
+
+char cmd1[] = "clientcount\n";
+char cmd2[] = "help\n";
 
 struct client {
 	unsigned int position;		/*position in client_sockets array, and a sort of id of the client*/
@@ -32,6 +36,18 @@ void print_ver_and_id(void) {
 	printf("Version: %s\n", VERSION);
 	printf("Author: Giacomo Leandrini\n");
 }
+
+char html_response[] = "HTTP/1.1 200 OK\r\n\
+Content-Type: text/html\r\n\r\n\
+<html>\n\
+<head><title>Sito web di Giacomol02</title></head>\n\
+<body>Ciao, questo sito e' hostato dal PC di Giacomol02 e sul server HTTP di Giacomol02 :)</body>\n\
+</html>";
+
+char html_payload[] = "<html>\n\
+<head><title>Test</title></head>\n\
+<body>Ciao mondo!</body>\n\
+</html>";
 
 void error(char *msg) {
  perror(msg);
@@ -129,12 +145,26 @@ void check_for_new_client(int sockfd, struct sockaddr_in cli_addr, int clilen, s
 */
 
 void shell_parse(char * buf, struct client * tail) {
-	char cmd1[] = "clientcount\n";
+	
 	if (strcmp(buf, cmd1) == 0)
 		printf("Connected clients: %d\n", client_count(tail));
+	else if (strcmp(buf, cmd2) == 0)
+		printf("help in progress\n");
 	else
 		printf("Unknown command\n");
 	return;
+}
+
+int parse_http_get(char * buffer) {
+	char get_str[] = "GET / HTTP/1.1";
+	int i = 0;
+	while(buffer[i] == get_str[i]) 
+	{
+		if (i == (strlen(get_str) - 1))
+			return 1;
+		i++;
+	}
+	return 0;
 }
 
 int main(int argc, char * argv[]) {
@@ -163,8 +193,8 @@ int main(int argc, char * argv[]) {
 		error("ERROR opening socket");
 
 	int opt = 1;
-	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));	/*socket option to be reused asap?*/
-
+	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));	/*to be able to reuse the socket soon*/
+	
 	bzero((char *) &serv_addr, sizeof(serv_addr));	/*setting serv_addr to zero (bzero is a memset wrapper afaik)*/
 
 	portno = atoi(argv[1]);
@@ -195,21 +225,31 @@ int main(int argc, char * argv[]) {
 		newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
 		if (newsockfd > 0) {
 			add_client(&tail, newsockfd, cli_addr);
-			if (inet_ntop(AF_INET, &(cli_addr.sin_addr), cli_addr_buf, sizeof(cli_addr_buf)) == NULL) error("Error converting IPV4 addr to string");
+
+			setsockopt(newsockfd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
+
+			int idle = 2, interval = 3, probes = 3;
+			setsockopt(newsockfd, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(idle));
+			setsockopt(newsockfd, IPPROTO_TCP, TCP_KEEPINTVL, &interval, sizeof(interval));
+			setsockopt(newsockfd, IPPROTO_TCP, TCP_KEEPCNT, &probes, sizeof(probes));
+
+			if (inet_ntop(AF_INET, &(cli_addr.sin_addr), cli_addr_buf, sizeof(cli_addr_buf)) == NULL)
+				error("Error converting IPV4 addr to string");
 			printf("Client %d connected from %s \n", client_count(tail), cli_addr_buf);
 		}
 		
-		memset(&shell_buf, 0, sizeof(shell_buf));
-		if (read(STDIN_FILENO, shell_buf, sizeof(shell_buf) - 1) > 0) {
-			//printf("echo: %s", shell_buf);
+		/*local stdin shell*/
+		memset(&shell_buf, 0, sizeof(shell_buf));	/*cleaning buffer*/
+		if (read(STDIN_FILENO, shell_buf, sizeof(shell_buf) - 1) > 0) {	/*reading n bytes, expects terminal in canonical mode*/
 			char command_symbol[] = "/";
-			if(strncmp(shell_buf, command_symbol, 1) == 0)
+			if(strncmp(shell_buf, command_symbol, 1) == 0)	/*check for the command symbol aka is the message a command?*/
 				shell_parse(shell_buf + 1, tail);
 		}
 
 		//check_for_new_client(sockfd, cli_addr, clilen, tail, cli_addr_buf);
+
 		/* Ok now lets check for incoming data*/
-		if(client_count(tail) > 0) {	/*but only if there is any client connected*/
+		if (client_count(tail) > 0) {	/*but only if there is any client connected*/
 			struct client * index  = tail;
 			while(index != NULL)	/*THis cycles through the client forward linked list via index*/
 			{
@@ -224,7 +264,12 @@ int main(int argc, char * argv[]) {
 						goto end;	/* client disconnected? :( let's move onto the next one :)*/
 					}
 					if (n < 0) error("Error reading from the socket");
-					printf("Client %d says: %s", index->position, buffer);	/*land here only if everything works out fine*/
+					//printf("Client %d says: %s", index->position, buffer);	/*land here only if everything works out fine*/
+					printf("%s", buffer);
+
+					if(parse_http_get(buffer)) {
+						write(index->socket.fd, html_response, strlen(html_response));
+					}
 				}
 				end:
 				index = index->next_ptr;
